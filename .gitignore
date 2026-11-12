@@ -1,0 +1,4 @@
+build/naHora.exe
+build/naHora.exe.sha256
+node_modules/
+*.tmp

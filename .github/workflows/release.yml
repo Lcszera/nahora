@@ -1,0 +1,33 @@
+name: Publicar versão
+# Ao enviar uma tag vX.Y.Z, compila o naHora.exe e publica no Releases.
+# O naHora instalado no PC baixa daqui sozinho.
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      - name: Testes
+        run: go test ./...
+      - name: Compilar
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          python3 -m pip install --quiet pillow
+          python3 build/mkrsrc.py build rsrc_windows_amd64.syso "$VER"
+          GOOS=windows GOARCH=amd64 go build -trimpath \
+            -ldflags "-H windowsgui -s -w -X main.appVersion=$VER -X main.defaultUpdateRepo=${{ github.repository }}" \
+            -o naHora.exe .
+          sha256sum naHora.exe > naHora.exe.sha256
+      - name: Publicar
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" naHora.exe naHora.exe.sha256 \
+            --title "naHora $GITHUB_REF_NAME" --notes "${{ github.event.head_commit.message || 'Nova versão do naHora' }}"
