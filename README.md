@@ -10,11 +10,8 @@ Rotina diária, tarefas e estudos no Windows — com avisos na hora certa, sem p
 - Fica na **bandeja** gastando pouquíssima memória e **se atualiza sozinho** pelo GitHub Releases.
 
 ## Como publicar uma versão nova
-```bash
-git tag v1.3.0 -m "O que mudou"
-git push origin v1.3.0
-```
-O GitHub Actions compila o `naHora.exe` e publica no Releases; o app instalado baixa, confere o SHA-256 e se atualiza.
+Troque o número no arquivo `VERSION` (ex.: `1.3.0`) e faça o commit na `main` com a descrição do que mudou.
+O GitHub Actions cria a tag, compila o `naHora.exe` e publica no Releases; o app instalado baixa, confere o SHA-256 e se atualiza.
 
 ## Desenvolvimento
 - Go 1.24, sem dependências externas (Win32 direto via `syscall`).

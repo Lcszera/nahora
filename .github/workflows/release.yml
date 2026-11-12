@@ -1,9 +1,11 @@
 name: Publicar versão
-# Ao enviar uma tag vX.Y.Z, compila o naHora.exe e publica no Releases.
-# O naHora instalado no PC baixa daqui sozinho.
+# Quando o arquivo VERSION muda na main, compila o naHora.exe e publica no Releases
+# (a tag vX.Y.Z é criada aqui). O naHora instalado no PC baixa daqui sozinho.
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
+    paths: [VERSION]
+  workflow_dispatch:
 permissions:
   contents: write
 jobs:
@@ -14,11 +16,21 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.24"
+      - name: Versão
+        id: v
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VER="$(tr -d ' \r\n' < VERSION)"
+          echo "ver=$VER" >> "$GITHUB_OUTPUT"
+          if gh release view "v$VER" >/dev/null 2>&1; then echo "existe=1" >> "$GITHUB_OUTPUT"; fi
       - name: Testes
+        if: steps.v.outputs.existe != '1'
         run: go test ./...
       - name: Compilar
+        if: steps.v.outputs.existe != '1'
         run: |
-          VER="${GITHUB_REF_NAME#v}"
+          VER="${{ steps.v.outputs.ver }}"
           python3 -m pip install --quiet pillow
           python3 build/mkrsrc.py build rsrc_windows_amd64.syso "$VER"
           GOOS=windows GOARCH=amd64 go build -trimpath \
@@ -26,8 +38,11 @@ jobs:
             -o naHora.exe .
           sha256sum naHora.exe > naHora.exe.sha256
       - name: Publicar
+        if: steps.v.outputs.existe != '1'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" naHora.exe naHora.exe.sha256 \
-            --title "naHora $GITHUB_REF_NAME" --notes "${{ github.event.head_commit.message || 'Nova versão do naHora' }}"
+          VER="${{ steps.v.outputs.ver }}"
+          git log -1 --pretty=%B > notas.txt
+          gh release create "v$VER" naHora.exe naHora.exe.sha256 --target "$GITHUB_SHA" \
+            --title "naHora v$VER" --notes-file notas.txt
