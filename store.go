@@ -332,6 +332,10 @@ func (s *Store) migrate() {
 	if st.WallDim == 0 && st.Wallpaper == "" {
 		st.WallDim = 45
 	}
+	if s.d.Seed < 1 && len(s.d.Catalogs) == 0 && len(s.d.Tasks) == 0 && len(s.d.Routines) == 0 && editionSeed(s) {
+		s.d.Seed = 1
+		s.saveLocked()
+	}
 	if s.d.Seed < 1 {
 		for i, c := range seedCatalogs {
 			if s.catalogByName(c.Name) == nil {

@@ -793,7 +793,7 @@ function groupHTML(g,i,curIdx,hasGates,pf){
       ${g.gate?`<div class="gate">✅ <b>Domine antes de avançar:</b> ${esc(g.gate)}</div>`:""}
       ${ts.map(t=>`<div class="topic s${t.status}" data-id="${t.id}">
         <button class="stb s${t.status}" title="${STL[t.status]} — clique para mudar"></button>
-        <div class="bd"><div class="tt"><span class="pd" title="${PRIO[t.prio][1]}">${PRIO[t.prio][0]}</span>${esc(t.title)}${t.src&&t.src.startsWith("#")?`<span class="src" title="Item ${esc(t.src)} da print">${esc(t.src)}</span>`:""}${t.status===1?`<span class="tag" style="background:rgba(255,184,77,.15);color:var(--warn)">estudando</span>`:""}</div>${t.note?`<div class="nt">${esc(t.note)}</div>`:""}</div>
+        <div class="bd"><div class="tt"><span class="pd" title="${PRIO[t.prio][1]}">${PRIO[t.prio][0]}</span>${esc(t.title)}${t.src?`<span class="src" title="${t.src.startsWith("#")?"Item "+esc(t.src)+" da print":"Origem: "+esc(t.src)}">${esc(t.src)}</span>`:""}${t.status===1?`<span class="tag" style="background:rgba(255,184,77,.15);color:var(--warn)">estudando</span>`:""}</div>${t.note?`<div class="nt">${esc(t.note)}</div>`:""}</div>
         <div class="acts"><button class="mini tsch" title="Agendar na rotina de hoje">📅</button><button class="mini ted" title="Editar">✎</button><button class="mini del tdel" title="Excluir">✕</button></div>
       </div>`).join("")||(pf?`<div class="hint">Nenhum assunto com essa prioridade aqui.</div>`:"")}
       <form class="addrow"><input type="text" placeholder="Novo assunto…" maxlength="120"><select>${[1,2,3,4].map(p=>`<option value="${p}">${PRIO[p][0]} ${PRIO[p][1]}</option>`).join("")}</select><button class="btn sm ghost">Adicionar</button></form>
