@@ -99,6 +99,9 @@ h2 .sp{flex:1}
 .empty{color:var(--tx3);text-align:center;padding:22px 10px;border:1px dashed var(--line);border-radius:12px}
 form .row{display:flex;gap:10px}
 form .row>*{flex:1}
+.dt{display:flex;gap:8px}.dt input[type=date]{flex:1.4}.dt .t24{flex:1}
+.t24{font-variant-numeric:tabular-nums;letter-spacing:.5px}
+.t24.bad{border-color:var(--bad)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--bad) 20%,transparent)!important}
 label{display:block;font-size:12px;color:var(--tx2);margin:10px 0 4px;font-weight:600}
 input[type=text],input[type=time],input[type=date],input[type=datetime-local],input[type=number],select,textarea{width:100%;padding:9px 11px;border-radius:10px;border:1px solid var(--line);background:var(--bg2);outline:none}
 textarea{resize:vertical;min-height:64px}
@@ -275,8 +278,8 @@ input[type=range]{width:180px;accent-color:var(--ac)}
           <label>O que vai fazer</label>
           <input type="text" id="rTitle" placeholder="Ex.: Reunião Trabalho" maxlength="80">
           <div class="row">
-            <div><label>Começa</label><input type="time" id="rTime"></div>
-            <div><label>Termina <small>(opcional)</small></label><input type="time" id="rEnd"></div>
+            <div><label>Começa</label><input type="text" class="t24" id="rTime" placeholder="ex.: 14:30" maxlength="5" inputmode="numeric" autocomplete="off"></div>
+            <div><label>Termina <small>(opcional)</small></label><input type="text" class="t24" id="rEnd" placeholder="ex.: 15:00" maxlength="5" inputmode="numeric" autocomplete="off"></div>
           </div>
           <label>Catálogo <small>(opcional)</small></label>
           <select id="rArea" class="catsel"></select>
@@ -321,9 +324,9 @@ input[type=range]{width:180px;accent-color:var(--ac)}
         <label>Catálogo</label>
         <select id="tArea" class="catsel"></select>
         <label>Começar a fazer em</label>
-        <input type="datetime-local" id="tStart">
+        <div class="dt"><input type="date" id="tStartD"><input type="text" class="t24" id="tStartT" placeholder="hora" maxlength="5" inputmode="numeric" autocomplete="off"></div>
         <label>Entrega</label>
-        <input type="datetime-local" id="tDue">
+        <div class="dt"><input type="date" id="tDueD"><input type="text" class="t24" id="tDueT" placeholder="hora" maxlength="5" inputmode="numeric" autocomplete="off"></div>
         <div class="quick" id="dueQuick"><button type="button" data-d="0">Hoje 23:59</button><button type="button" data-d="1">Amanhã 23:59</button><button type="button" data-d="7">Em 1 semana</button></div>
         <div class="btns"><button class="btn" id="tSave">Criar tarefa</button><button type="button" class="btn ghost" id="tCancel" style="display:none">Cancelar</button></div>
         <div class="hint">Você recebe aviso na hora de começar e quando faltarem 2 dias, 1 dia, 12 horas e 1 hora para a entrega.</div>
@@ -442,6 +445,39 @@ const parseYmd=s=>{const[a,b,c]=s.split("-").map(Number);return new Date(a,b-1,c
 const parseSt=s=>{if(!s)return null;const[d,t]=s.split("T");const x=parseYmd(d);const[h,m]=t.split(":").map(Number);x.setHours(h,m,0,0);return x};
 const atTime=(dateStr,hm)=>{const x=parseYmd(dateStr);const[h,m]=hm.split(":").map(Number);x.setHours(h,m,0,0);return x};
 const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+// ---- horário sempre em 24h (o campo nativo do navegador vira AM/PM em Windows em inglês) ----
+function normT(v){
+  v=String(v||"").trim(); if(!v)return "";
+  let h,m; const mt=v.match(/^(\d{1,2})\s*[:hH.]\s*(\d{0,2})$/);
+  if(mt){h=+mt[1];m=mt[2]===""?0:+mt[2]}
+  else{const d=v.replace(/\D/g,"");if(!d||d.length>4)return null;
+    if(d.length<=2){h=+d;m=0}else{h=+d.slice(0,d.length-2);m=+d.slice(-2)}}
+  if(h>23||m>59)return null;
+  return pad(h)+":"+pad(m);
+}
+function readT(el){const n=normT(el.value);el.classList.toggle("bad",n===null);if(n)el.value=n;return n}
+function initT24(){
+  $$(".t24").forEach(el=>{
+    el.addEventListener("input",()=>{el.classList.remove("bad");
+      if(el.value.includes(":")){const [x,y=""]=el.value.split(":");el.value=x.replace(/\D/g,"").slice(0,2)+":"+y.replace(/\D/g,"").slice(0,2);return}
+      const d=el.value.replace(/\D/g,"").slice(0,4);
+      if(d.length===4)el.value=d.slice(0,2)+":"+d.slice(2);                      // 1930 -> 19:30
+      else if(d.length===3)el.value=+d.slice(0,2)<=23?d.slice(0,2)+":"+d[2]:d[0]+":"+d.slice(1); // 193 -> 19:3 | 930 -> 9:30
+      else if(d.length===2&&+d>23)el.value=d[0]+":"+d[1];                      // 25 -> 2:5
+      else el.value=d;
+    });
+    el.addEventListener("blur",()=>readT(el));
+    el.addEventListener("keydown",e=>{
+      if(e.key!=="ArrowUp"&&e.key!=="ArrowDown")return;
+      e.preventDefault();
+      const n=normT(el.value)||"08:00"; let [h,m]=n.split(":").map(Number);
+      let t=h*60+m+(e.key==="ArrowUp"?1:-1)*(e.shiftKey?60:5);
+      t=(t+1440)%1440; el.value=pad(Math.floor(t/60))+":"+pad(t%60); el.classList.remove("bad");
+    });
+  });
+}
+function getDT(p){const d=$(`#${p}D`).value,t=readT($(`#${p}T`));if(t===null)return null;if(!d&&!t)return "";if(!d)return null;return d+"T"+(t||"23:59")}
+function setDT(p,v){$(`#${p}D`).value=v?v.slice(0,10):"";$(`#${p}T`).value=v?v.slice(11,16):"";$(`#${p}T`).classList.remove("bad")}
 const cat=id=>S&&S.catalogs.find(c=>c.id===id);
 const ctag=id=>{const c=cat(id);return c?`<span class="ctag" style="--c:${c.color}">${esc(c.emoji)} ${esc(c.name)}</span>`:""};
 const cstyle=id=>{const c=cat(id);return c?` style="--c:${c.color}"`:""};
@@ -628,7 +664,9 @@ function prefillRoutine(title,area){
 $("#rCancel").onclick=resetR;
 $("#rForm").onsubmit=async e=>{
   e.preventDefault();
-  const body={title:$("#rTitle").value,time:$("#rTime").value,end:$("#rEnd").value,note:$("#rNote").value,area:$("#rArea").value,fixed:rKind==="fixa",
+  const tm=readT($("#rTime")), en=readT($("#rEnd"));
+  if(tm===null||en===null){toast("Horário inválido. Use 24h, ex.: 09:00, 14:30, 21:15.");return (tm===null?$("#rTime"):$("#rEnd")).focus()}
+  const body={title:$("#rTitle").value,time:tm,end:en,note:$("#rNote").value,area:$("#rArea").value,fixed:rKind==="fixa",
     days:[...rDays],date:editR&&!editR.fixed?editR.date:viewDate};
   if(!body.title.trim()){toast("Escreva o que vai fazer.");return $("#rTitle").focus()}
   if(!body.time){toast("Escolha o horário.");return $("#rTime").focus()}
@@ -680,18 +718,21 @@ function completeTask(t){
 }
 function startEditT(t){
   editT=t; showView("tarefas");
-  $("#tName").value=t.name;$("#tArea").value=t.area||"";$("#tStart").value=t.start||"";$("#tDue").value=t.due;
+  $("#tName").value=t.name;$("#tArea").value=t.area||"";setDT("tStart",t.start||"");setDT("tDue",t.due);
   $("#tfTitle").textContent="Editar tarefa";$("#tSave").textContent="Salvar alterações";$("#tCancel").style.display="";$("#tName").focus();
 }
 function newTaskIn(area){resetT();showView("tarefas");$("#tArea").value=area||"";$("#tName").focus()}
 function resetT(){editT=null;$("#tForm").reset();$("#tfTitle").textContent="Nova tarefa";$("#tSave").textContent="Criar tarefa";$("#tCancel").style.display="none";if(taskFilter)$("#tArea").value=taskFilter}
 $("#tCancel").onclick=resetT;
-$$("#dueQuick button").forEach(b=>b.onclick=()=>{const d=new Date();const n=+b.dataset.d;d.setDate(d.getDate()+n);if(n===7)d.setHours(18,0,0,0);else d.setHours(23,59,0,0);$("#tDue").value=stamp(d)});
+$$("#dueQuick button").forEach(b=>b.onclick=()=>{const d=new Date();const n=+b.dataset.d;d.setDate(d.getDate()+n);if(n===7)d.setHours(18,0,0,0);else d.setHours(23,59,0,0);setDT("tDue",stamp(d))});
 $("#tForm").onsubmit=async e=>{
   e.preventDefault();
-  const body={name:$("#tName").value,area:$("#tArea").value,type:editT&&!$("#tArea").value?editT.type:"",start:$("#tStart").value,due:$("#tDue").value};
+  const start=getDT("tStart"), due=getDT("tDue");
+  if(start===null){toast("Confira a data e a hora de começar (use 24h, ex.: 14:30).");return $("#tStartD").value?$("#tStartT").focus():$("#tStartD").focus()}
+  if(due===null){toast("Confira a data e a hora de entrega (use 24h, ex.: 18:00).");return $("#tDueD").value?$("#tDueT").focus():$("#tDueD").focus()}
+  const body={name:$("#tName").value,area:$("#tArea").value,type:editT&&!$("#tArea").value?editT.type:"",start,due};
   if(!body.name.trim()){toast("Dê um nome para a tarefa.");return $("#tName").focus()}
-  if(!body.due){toast("Escolha a data e hora de entrega.");return $("#tDue").focus()}
+  if(!body.due){toast("Escolha a data e a hora de entrega.");return $("#tDueD").focus()}
   if(body.start&&body.start>body.due){toast("O início está depois da entrega — confira as datas.");return}
   try{ editT?await api("PUT",`/api/tasks/${editT.id}`,body):await api("POST","/api/tasks",body);
     const was=!!editT; resetT(); toast(was?"Tarefa atualizada":"Tarefa criada"); load();
@@ -946,7 +987,7 @@ window.addEventListener("pagehide",()=>{for(const id of pending.keys())fetch(`/a
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){if($("#modal").classList.contains("on"))closeModal();else{resetR();resetT()}}});
 matchMedia("(prefers-color-scheme: light)").addEventListener("change",()=>S&&applyTheme(S.settings.theme));
 
-drawDays(); setKind("dia");
+drawDays(); setKind("dia"); initT24();
 load().then(hintR); listen();
 </script>
 </body>
